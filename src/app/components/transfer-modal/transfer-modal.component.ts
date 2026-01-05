@@ -82,8 +82,8 @@ export class TransferModalComponent {
   receiverName = signal<string | null>(null);
   upiIdInvalid = signal(false);
 
-  // FIX: The FormBuilder was not being resolved correctly during class property initialization, resulting in `this.fb` being of type `unknown`. Using `inject(FormBuilder)` directly within the property initializer for the form group resolves this by avoiding reliance on `this` in that context.
-  transferForm = inject(FormBuilder).group({
+  // FIX: Explicitly cast the result of inject(FormBuilder) to FormBuilder to resolve a type inference issue where it was being treated as 'unknown'. This ensures the 'group' method is available and the form is correctly typed.
+  transferForm = (inject(FormBuilder) as FormBuilder).group({
     upiId: ['', [Validators.required, Validators.pattern(/^.+@TEST$/)]],
     amount: [null as number | null, [Validators.required, Validators.min(1)]],
   });

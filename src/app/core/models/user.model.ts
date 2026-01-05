@@ -19,4 +19,5 @@ export interface UserProfile {
   displayName?: string | null;
   phoneNumber?: string | null;
   photoURL?: string | null;
+  isBanned?: boolean;
 }

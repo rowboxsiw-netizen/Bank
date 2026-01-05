@@ -18,8 +18,8 @@ export class RegisterComponent {
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
 
-  // FIX: The FormBuilder was not being resolved correctly during class property initialization, resulting in `this.fb` being of type `unknown`. Using `inject(FormBuilder)` directly within the property initializer for the form group resolves this by avoiding reliance on `this` in that context.
-  registerForm = inject(FormBuilder).group({
+  // FIX: Explicitly cast the result of inject(FormBuilder) to FormBuilder to resolve a type inference issue where it was being treated as 'unknown'. This ensures the 'group' method is available and the form is correctly typed.
+  registerForm = (inject(FormBuilder) as FormBuilder).group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
     upiId: ['', [Validators.required, Validators.pattern(/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/)]]

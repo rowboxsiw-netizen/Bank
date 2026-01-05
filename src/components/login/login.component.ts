@@ -17,8 +17,8 @@ export class LoginComponent {
   loading = signal(false);
   errorMessage = signal<string | null>(null);
 
-  // FIX: The FormBuilder was not being resolved correctly during class property initialization, resulting in `this.fb` being of type `unknown`. Using `inject(FormBuilder)` directly within the property initializer for the form group resolves this by avoiding reliance on `this` in that context.
-  loginForm = inject(FormBuilder).group({
+  // FIX: Explicitly cast the result of inject(FormBuilder) to FormBuilder to resolve a type inference issue where it was being treated as 'unknown'. This ensures the 'group' method is available and the form is correctly typed.
+  loginForm = (inject(FormBuilder) as FormBuilder).group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]]
   });

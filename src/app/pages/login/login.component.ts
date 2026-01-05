@@ -72,29 +72,35 @@ export class LoginComponent {
   loading = signal(false);
   errorMessage = signal<string | null>(null);
 
-  // FIX: Explicitly cast the result of inject(FormBuilder) to FormBuilder to resolve a type inference issue where it was being treated as 'unknown'. This ensures the 'group' method is available and the form is correctly typed.
   loginForm = (inject(FormBuilder) as FormBuilder).group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]]
   });
 
   async onSubmit() {
-    if (this.loginForm.invalid) {
-      return;
-    }
+    if (this.loginForm.invalid) return;
 
+    // 1. Immediate Feedback
     this.loading.set(true);
     this.errorMessage.set(null);
+    this.loginForm.disable(); // Prevent interactions during load
 
-    const { email, password } = this.loginForm.value;
+    const { email, password } = this.loginForm.getRawValue();
 
     try {
+      // 2. Wait for Login AND Profile Sync
       await this.authService.login(email!, password!);
-      this.router.navigate(['/dashboard']);
+      
+      // 3. Navigation only on success
+      await this.router.navigate(['/dashboard']);
     } catch (error: any) {
-      this.errorMessage.set(error.message || 'An unknown error occurred.');
-    } finally {
+      // 4. Handle Errors
+      console.error(error);
+      this.errorMessage.set(error.message || 'Invalid credentials. Please try again.');
+      
+      // Reset state for retry
       this.loading.set(false);
+      this.loginForm.enable();
     }
   }
 }

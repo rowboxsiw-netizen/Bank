@@ -155,6 +155,10 @@ export class AuthService {
         displayName: null, 
         phoneNumber: null,
       });
+
+      // Wait for profile sync before returning to ensure dashboard access
+      await this.waitForUserProfile(credential.user.uid);
+
     } catch (error) {
       if (error instanceof Error && (error as any).code === 'auth/email-already-in-use') {
         throw new Error('This email address is already in use.');
@@ -183,10 +187,37 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<void> {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      // RACE CONDITION FIX:
+      // AuthGuard checks 'currentUser()', but that is set asynchronously via Firestore snapshot.
+      // We must wait until the signal matches the authenticated user UID before resolving.
+      await this.waitForUserProfile(result.user.uid);
     } catch (error) {
       throw new Error('Invalid email or password.');
     }
+  }
+
+  private waitForUserProfile(uid: string): Promise<void> {
+    return new Promise((resolve) => {
+      // Check immediately
+      if (this.currentUser()?.uid === uid) {
+        return resolve();
+      }
+
+      // Check periodically (every 50ms)
+      const interval = setInterval(() => {
+        if (this.currentUser()?.uid === uid) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 50);
+
+      // Timeout fallback (4s) to prevent infinite hanging
+      setTimeout(() => {
+        clearInterval(interval);
+        resolve(); 
+      }, 4000);
+    });
   }
 
   async logout(): Promise<void> {

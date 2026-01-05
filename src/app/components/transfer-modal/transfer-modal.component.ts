@@ -105,7 +105,8 @@ export class TransferModalComponent {
       }),
       switchMap(upi => {
         if (!this.upiId?.valid) return Promise.resolve(null);
-        return this.transactionService.findReceiverByUpi(upi!);
+        // FIX: Cast upi to string as AbstractControl.valueChanges can be inferred as unknown
+        return this.transactionService.findReceiverByUpi(upi as string);
       })
     ).subscribe(receiver => {
       if (receiver) {

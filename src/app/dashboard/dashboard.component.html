@@ -1,0 +1,128 @@
+
+<!-- THE UNIVERSE (3D Layer) -->
+<app-three-bg class="fixed inset-0 w-full h-full pointer-events-none z-0"></app-three-bg>
+
+<!-- THE COCKPIT (UI Layer) -->
+<div class="relative z-10 min-h-screen text-white font-sans p-4 sm:p-6 lg:p-12 overflow-x-hidden">
+  
+  <!-- Header -->
+  <header class="max-w-6xl mx-auto flex justify-between items-center mb-12 animate-fade-in-up">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.5)]">
+            <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+        </div>
+        <div>
+            <h1 class="font-bold text-2xl tracking-tight">Neo-Bank Infinity</h1>
+            <p class="text-xs text-indigo-300 font-mono tracking-widest uppercase">Secure Connection // {{ user()?.upiId }}</p>
+        </div>
+    </div>
+    <button (click)="authService.logout()" class="px-5 py-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-md transition-all text-sm font-medium">
+        Disconnect
+    </button>
+  </header>
+
+  <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <!-- LEFT COLUMN: Card & Actions (5 cols) -->
+    <section class="lg:col-span-5 space-y-8 animate-fade-in-up" style="animation-delay: 100ms;">
+        
+        <!-- 3D Card Container -->
+        <div appTilt class="perspective-1000 group cursor-pointer relative h-[260px] w-full max-w-md mx-auto" (click)="toggleCardFlip()">
+            <div class="w-full h-full transition-transform duration-700 transform-style-3d relative"
+                 [class.rotate-y-180]="isCardFlipped()">
+                
+                <!-- Front -->
+                <div class="absolute inset-0 backface-hidden">
+                    <app-credit-card [card]="user()?.card"></app-credit-card>
+                </div>
+                
+                <!-- Back (Simulated by reusing component or specific back-face logic) -->
+                <!-- Ideally VirtualCardComponent handles flipping internally, but for this architecture we can flip the container -->
+                <div class="absolute inset-0 rotate-y-180 backface-hidden">
+                     <!-- Back of card logic here, or just a flipped version -->
+                     <div class="w-full h-full rounded-2xl bg-zinc-900 border border-white/10 shadow-2xl p-6 flex flex-col justify-between">
+                        <div class="w-full h-12 bg-black mt-4"></div>
+                        <div class="text-right">
+                             <p class="text-[10px] text-gray-500 uppercase">CVV</p>
+                             <p class="font-mono text-xl font-bold">{{ user()?.card?.cvv }}</p>
+                        </div>
+                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Balance (Big Typography) -->
+        <div class="text-center lg:text-left">
+            <p class="text-indigo-300 text-xs font-bold uppercase tracking-[0.2em] mb-2">Available Liquidity</p>
+            <h2 class="text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-100 to-indigo-400 drop-shadow-2xl">
+                {{ balance() | currency:'INR':'symbol':'1.2-2' }}
+            </h2>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-2 gap-4">
+            <button (click)="openTransfer()" 
+                    class="group relative px-6 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-[0_0_40px_rgba(79,70,229,0.4)] transition-all active:scale-95 overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                <span class="relative flex items-center justify-center gap-2">
+                    Send Money <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </span>
+            </button>
+            <button class="px-6 py-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-md text-white font-bold transition-all active:scale-95">
+                Add Funds
+            </button>
+        </div>
+    </section>
+
+    <!-- RIGHT COLUMN: Transaction History (7 cols) -->
+    <section class="lg:col-span-7 animate-fade-in-up" style="animation-delay: 200ms;">
+        <div class="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden h-full min-h-[500px] flex flex-col">
+            <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+                <h3 class="font-bold text-lg">Live Ledger</h3>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span class="text-xs text-green-400 font-mono">REAL-TIME</span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                @for (tx of transactions(); track tx.id) {
+                    <div class="group flex items-center justify-between p-4 rounded-xl hover:bg-white/5 transition-colors cursor-default">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center border border-white/10"
+                                 [ngClass]="tx.type === 'credit' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'">
+                                <svg *ngIf="tx.type === 'debit'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                                <svg *ngIf="tx.type === 'credit'" class="w-5 h-5 transform rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm text-white group-hover:text-indigo-300 transition-colors">{{ tx.merchant }}</p>
+                                <p class="text-xs text-white/40 font-mono">{{ tx.date | date:'medium' }}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-mono font-bold" 
+                               [ngClass]="tx.type === 'credit' ? 'text-green-400' : 'text-white'">
+                                {{ tx.type === 'credit' ? '+' : '-' }}{{ tx.amount | currency:'INR':'symbol':'1.0-0' }}
+                            </p>
+                            <span class="text-[10px] uppercase font-bold tracking-wider" 
+                                  [ngClass]="tx.status === 'Completed' ? 'text-white/30' : 'text-red-500'">
+                                {{ tx.status }}
+                            </span>
+                        </div>
+                    </div>
+                } @empty {
+                    <div class="h-64 flex flex-col items-center justify-center text-white/30">
+                        <svg class="w-12 h-12 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        <p>No activity recorded on the blockchain.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+  </main>
+
+  <!-- Modals -->
+  @if (showTransferModal()) {
+      <app-transfer-modal (close)="showTransferModal.set(false)" (transfer)="onTransferSubmit($event)"></app-transfer-modal>
+  }
+</div>

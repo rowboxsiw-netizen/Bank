@@ -3,22 +3,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function for admin check
+    // Admin Override (Optional, kept for God Mode)
     function isAdmin() {
       return request.auth.token.email == 'rowboxslw@gmail.com';
     }
 
     match /users/{userId} {
-      // Allow users to read/write their own data
-      // Allow Admin to read/write ANY user data
+      // User can read/write their own profile
       allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       
-      match /transactions/{transactionId} {
+      // Transactions Subcollection
+      match /transactions/{txnId} {
+        // User can read/write their own transactions
         allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
     }
     
-    // Default deny
+    // Global lock
     match /{document=**} {
       allow read, write: if isAdmin(); 
     }

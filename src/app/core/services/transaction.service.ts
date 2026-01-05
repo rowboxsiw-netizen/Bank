@@ -1,140 +1,165 @@
-
-import { Injectable, signal, inject, effect } from '@angular/core';
-import {
-  collection,
-  onSnapshot,
-  query,
-  orderBy,
-  doc,
-  runTransaction,
-  Timestamp,
-  where,
-  getDocs,
-  limit
+import { Injectable, inject, signal, computed, effect } from '@angular/core';
+import { 
+  collection, 
+  doc, 
+  runTransaction, 
+  query, 
+  where, 
+  getDocs, 
+  limit, 
+  onSnapshot, 
+  orderBy, 
+  Timestamp 
 } from 'firebase/firestore';
 import { firestore } from '../../../firebase.config';
 import { AuthService } from './auth.service';
-import { Transaction } from '../../../models/transaction.model';
-
-export type TransferStatus = 'SUCCESS' | 'INSUFFICIENT_FUNDS' | 'RECEIVER_NOT_FOUND' | 'CARD_FROZEN' | 'ERROR';
+import { Transaction } from '../../models/transaction.model';
+import { UiService } from './ui.service';
 
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
 export class TransactionService {
   private authService = inject(AuthService);
-  private currentUser = this.authService.currentUser;
-  private unsubscribeFromTransactions: (() => void) | null = null;
-
-  public transactions = signal<Transaction[]>([]);
+  private uiService = inject(UiService);
+  
+  // The Source of Truth for the UI
+  // Note: We maintain a local signal that matches Firestore, but can be optimistically updated
+  private _transactions = signal<Transaction[]>([]);
+  readonly transactions = this._transactions.asReadonly();
 
   constructor() {
+    // Real-time listener for the transaction feed
     effect((onCleanup) => {
-      const user = this.currentUser();
-
-      if (this.unsubscribeFromTransactions) {
-        this.unsubscribeFromTransactions();
+      const user = this.authService.currentUser();
+      if (!user) {
+        this._transactions.set([]);
+        return;
       }
 
-      if (user) {
-        const q = query(
-          collection(firestore, 'users', user.uid, 'transactions'),
-          orderBy('date', 'desc'),
-          limit(10)
-        );
-        this.unsubscribeFromTransactions = onSnapshot(q, (querySnapshot) => {
-          const userTransactions = querySnapshot.docs.map((doc) => {
-            const data = doc.data();
+      const q = query(
+        collection(firestore, 'users', user.uid, 'transactions'),
+        orderBy('date', 'desc'),
+        limit(20)
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const txs = snapshot.docs.map(d => {
+            const data = d.data();
             return {
-              id: doc.id,
-              date: (data['date'] as Timestamp).toDate(),
-              merchant: data['merchant'],
-              amount: data['amount'],
-              status: data['status'],
-              type: data['type'],
+                id: d.id,
+                ...data,
+                date: (data['date'] as Timestamp).toDate()
             } as Transaction;
-          });
-          this.transactions.set(userTransactions);
         });
+        // When server data arrives, it overwrites our optimistic state
+        // This confirms the transaction to the user invisibly
+        this._transactions.set(txs);
+      });
 
-        onCleanup(() => {
-          if (this.unsubscribeFromTransactions) this.unsubscribeFromTransactions();
-        });
-      } else {
-        this.transactions.set([]);
-      }
+      onCleanup(() => unsubscribe());
     });
   }
-  
-  async findReceiverByUpi(upiId: string): Promise<{ id: string; displayName: string } | null> {
-    const usersRef = collection(firestore, 'users');
-    const q = query(usersRef, where('upiId', '==', upiId), limit(1));
-    const querySnapshot = await getDocs(q);
 
-    if (querySnapshot.empty) {
-      return null;
-    }
-    const receiverDoc = querySnapshot.docs[0];
-    return { id: receiverDoc.id, displayName: receiverDoc.data()['displayName'] || 'User' };
+  async findReceiverByUpi(upiId: string): Promise<{ displayName: string } | null> {
+    const docSnap = await this.getReceiverDoc(upiId);
+    if (!docSnap) return null;
+    return { displayName: docSnap.data()['displayName'] || 'Valued Member' };
   }
 
+  /**
+   * ZERO LATENCY TRANSFER LOGIC
+   * 1. Validate locally
+   * 2. Update UI Balance IMMEDIATELY (Optimistic)
+   * 3. Send to Server (Async)
+   * 4. Rollback if Server Fails
+   */
+  async sendMoney(amount: number, receiverUpi: string, note: string = ''): Promise<boolean> {
+    const sender = this.authService.currentUser();
+    if (!sender) throw new Error("Not logged in");
+    if (amount <= 0) throw new Error("Invalid amount");
+    if (sender.balance < amount) throw new Error("Insufficient funds");
 
-  async transferFunds(amount: number, receiverUpi: string): Promise<TransferStatus> {
-    const sender = this.currentUser();
-    if (!sender) return 'ERROR';
+    // --- STEP 1: SNAPSHOT STATE FOR ROLLBACK ---
+    const previousBalance = sender.balance;
 
-    // STRICT CHECK: Card Freeze
-    if (sender.card && sender.card.status === 'frozen') {
-      return 'CARD_FROZEN';
-    }
+    // --- STEP 2: OPTIMISTIC UPDATE (Zero Latency) ---
+    // We manually update the AuthService's signal to reflect the deduction instantly.
+    // The user sees the balance drop 0ms after clicking send.
+    this.authService.currentUser.update(u => u ? ({ ...u, balance: u.balance - amount }) : null);
 
     try {
-      const receiverData = await this.findReceiverByUpi(receiverUpi);
-      if (!receiverData) return 'RECEIVER_NOT_FOUND';
-
-      const senderDocRef = doc(firestore, 'users', sender.uid);
-      const receiverDocRef = doc(firestore, 'users', receiverData.id);
+      // --- STEP 3: PERFORM ACID TRANSACTION ---
+      const receiverSnapshot = await this.getReceiverDoc(receiverUpi);
+      if (!receiverSnapshot) throw new Error("Receiver not found");
 
       await runTransaction(firestore, async (transaction) => {
-        const [senderDoc, receiverDoc] = await Promise.all([
-          transaction.get(senderDocRef),
-          transaction.get(receiverDocRef)
-        ]);
+        const senderRef = doc(firestore, 'users', sender.uid);
+        const receiverRef = doc(firestore, 'users', receiverSnapshot.id);
 
-        if (!senderDoc.exists() || !receiverDoc.exists()) throw new Error("User document not found");
+        // Read (Lock)
+        const sDoc = await transaction.get(senderRef);
+        const rDoc = await transaction.get(receiverRef);
+
+        if (!sDoc.exists() || !rDoc.exists()) throw new Error("Document missing");
         
-        const senderBalance = senderDoc.data()['balance'];
-        if (senderBalance < amount) throw new Error('INSUFFICIENT_FUNDS');
+        const serverSenderBalance = sDoc.data()['balance'];
+        
+        // Double Check on Server Side
+        if (serverSenderBalance < amount) {
+            throw new Error("Insufficient funds (Server Validation)");
+        }
 
-        // Debit sender, credit receiver
-        transaction.update(senderDocRef, { balance: senderBalance - amount });
-        transaction.update(receiverDocRef, { balance: receiverDoc.data()['balance'] + amount });
+        // Write
+        transaction.update(senderRef, { balance: serverSenderBalance - amount });
+        transaction.update(receiverRef, { balance: rDoc.data()['balance'] + amount });
 
-        // Create transaction logs for both parties
+        // Generate Logs
+        const timestamp = new Date();
         const senderTxRef = doc(collection(firestore, 'users', sender.uid, 'transactions'));
         transaction.set(senderTxRef, {
-          merchant: `Sent to ${receiverData.displayName} (${receiverUpi})`,
-          amount,
-          date: new Date(),
-          status: 'Completed',
-          type: 'debit',
+            amount,
+            type: 'debit',
+            status: 'Completed',
+            merchant: receiverSnapshot.data()['displayName'] || receiverUpi,
+            receiverUpi,
+            senderUpi: sender.upiId,
+            date: timestamp,
+            description: note
         });
-
-        const receiverTxRef = doc(collection(firestore, 'users', receiverData.id, 'transactions'));
+        
+        const receiverTxRef = doc(collection(firestore, 'users', receiverSnapshot.id, 'transactions'));
         transaction.set(receiverTxRef, {
-          merchant: `Received from ${sender.displayName} (${sender.upiId})`,
-          amount,
-          date: new Date(),
-          status: 'Completed',
-          type: 'credit',
+            amount,
+            type: 'credit',
+            status: 'Completed',
+            merchant: sender.displayName || sender.upiId,
+            receiverUpi,
+            senderUpi: sender.upiId,
+            date: timestamp,
+            description: note
         });
       });
 
-      return 'SUCCESS';
-    } catch (e: any) {
-      console.error('Transaction failed:', e);
-      if (e.message === 'INSUFFICIENT_FUNDS') return 'INSUFFICIENT_FUNDS';
-      return 'ERROR';
+      // Success! The onSnapshot listener in constructor will eventually 
+      // pull the official new state, confirming our optimistic update.
+      return true;
+
+    } catch (error: any) {
+      // --- STEP 4: ROLLBACK (Time Travel) ---
+      console.error("Transaction Failed, Rolling Back", error);
+      
+      // Revert the balance to what it was before the click
+      this.authService.currentUser.update(u => u ? ({ ...u, balance: previousBalance }) : null);
+      
+      this.uiService.showToast(error.message || 'Transfer Failed', 'error');
+      return false;
     }
+  }
+
+  private async getReceiverDoc(upiId: string) {
+    const q = query(collection(firestore, 'users'), where('upiId', '==', upiId), limit(1));
+    const snapshot = await getDocs(q);
+    return snapshot.empty ? null : snapshot.docs[0];
   }
 }

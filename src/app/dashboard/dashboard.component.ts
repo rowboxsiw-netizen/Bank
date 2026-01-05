@@ -71,7 +71,7 @@ import { TiltDirective } from '../shared/directives/tilt.directive';
           </div>
 
           <!-- Right: The Purple Card -->
-          <div class="flex justify-center lg:justify-end animate-fade-in-up [animation-delay:150ms]">
+          <div appTilt class="flex justify-center lg:justify-end animate-fade-in-up [animation-delay:150ms]">
              <app-credit-card [card]="currentUser()?.card" />
           </div>
         </div>

@@ -1,4 +1,3 @@
-
 import { Injectable, signal, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import {
@@ -15,7 +14,8 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { UserProfile } from '../models/user.model';
-import { auth, db } from '../firebase.config';
+// FIX: Changed import from 'db' to 'firestore' to match the export from firebase.config.ts
+import { auth, firestore } from '../firebase.config';
 
 @Injectable({
   providedIn: 'root',
@@ -34,7 +34,8 @@ export class AuthService {
       }
       
       if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
+        // FIX: Use 'firestore' instead of 'db'
+        const userDocRef = doc(firestore, 'users', user.uid);
         // Listen for real-time updates to the user document
         this.unsubscribeFromUserDoc = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
@@ -67,7 +68,8 @@ export class AuthService {
       const user = userCredential.user;
 
       // Create user document in Firestore
-      const userDocRef = doc(db, 'users', user.uid);
+      // FIX: Use 'firestore' instead of 'db'
+      const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, {
         email: user.email,
         upiId: upiId,

@@ -1,4 +1,3 @@
-
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { Transaction } from '../models/transaction.model';
 import {
@@ -10,7 +9,8 @@ import {
   runTransaction,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '../firebase.config';
+// FIX: Changed import from 'db' to 'firestore' to match the export from firebase.config.ts
+import { firestore } from '../firebase.config';
 import { AuthService } from './auth.service';
 
 @Injectable({
@@ -77,7 +77,8 @@ export class TransactionService {
 
       if (user) {
         const q = query(
-          collection(db, 'users', user.uid, 'transactions'),
+          // FIX: Use 'firestore' instead of 'db'
+          collection(firestore, 'users', user.uid, 'transactions'),
           orderBy('date', 'desc')
         );
         this.unsubscribeFromTransactions = onSnapshot(q, (querySnapshot) => {
@@ -113,10 +114,12 @@ export class TransactionService {
     if (!user) throw new Error('User not logged in.');
     if (transaction.amount <= 0) throw new Error('Transaction amount must be positive.');
 
-    const userDocRef = doc(db, 'users', user.uid);
+    // FIX: Use 'firestore' instead of 'db'
+    const userDocRef = doc(firestore, 'users', user.uid);
 
     try {
-      await runTransaction(db, async (tx) => {
+      // FIX: Use 'firestore' instead of 'db'
+      await runTransaction(firestore, async (tx) => {
         const userDoc = await tx.get(userDocRef);
         if (!userDoc.exists()) {
           throw new Error('User document does not exist!');
@@ -138,7 +141,8 @@ export class TransactionService {
         tx.update(userDocRef, { balance: newBalance });
 
         // 2. Add the new transaction record
-        const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
+        // FIX: Use 'firestore' instead of 'db'
+        const newTransactionRef = doc(collection(firestore, 'users', user.uid, 'transactions'));
         tx.set(newTransactionRef, {
           ...transaction,
           date: new Date(transaction.date), // Store as Firestore Timestamp

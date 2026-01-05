@@ -14,7 +14,7 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { UserProfile } from '../models/user.model';
-import { auth, firestore } from './firebase.service';
+import { auth, firestore } from '../../../firebase.config';
 
 @Injectable({
   providedIn: 'root',

@@ -34,7 +34,7 @@ export class ThreeBgComponent implements OnInit, OnDestroy {
     // 1. Setup Scene
     this.scene = new THREE.Scene();
     // Dark fog for depth perception
-    this.scene.fog = new THREE.FogExp2(0x050505, 0.002);
+    this.scene.fog = new THREE.FogExp2(0x000000, 0.002);
 
     // 2. Camera
     const width = window.innerWidth;
@@ -42,11 +42,12 @@ export class ThreeBgComponent implements OnInit, OnDestroy {
     this.camera = new THREE.PerspectiveCamera(75, width / height, 1, 2000);
     this.camera.position.z = 1000;
 
-    // 3. Renderer (Transparent for Tailwind BG blending)
-    this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    // 3. Renderer
+    // FIX: Set alpha to false and clear color to Black Opaque to prevent white background bleed
+    this.renderer = new THREE.WebGLRenderer({ alpha: false, antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(width, height);
-    this.renderer.setClearColor(0x000000, 0); // Transparent
+    this.renderer.setClearColor(0x000000, 1); 
     this.rendererContainer.nativeElement.appendChild(this.renderer.domElement);
 
     // 4. Particle System (The Nebula)

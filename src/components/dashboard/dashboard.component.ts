@@ -1,3 +1,4 @@
+
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
@@ -14,7 +15,6 @@ import { Transaction } from '../../models/transaction.model';
 export class DashboardComponent {
   authService = inject(AuthService);
   transactionService = inject(TransactionService);
-  fb = inject(FormBuilder);
 
   currentUser = this.authService.currentUser;
   transactions = this.transactionService.transactions;
@@ -23,7 +23,8 @@ export class DashboardComponent {
 
   transferError = signal<string | null>(null);
 
-  quickTransferForm = this.fb.group({
+  // FIX: The FormBuilder was not being resolved correctly during class property initialization, resulting in `this.fb` being of type `unknown`. Using `inject(FormBuilder)` directly within the property initializer for the form group resolves this by avoiding reliance on `this` in that context.
+  quickTransferForm = inject(FormBuilder).group({
     recipient: ['', Validators.required],
     amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
     memo: ['']

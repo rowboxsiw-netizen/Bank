@@ -63,13 +63,13 @@ import { AuthService } from '../../core/services/auth.service';
   `
 })
 export class KycModalComponent {
-  private fb = inject(FormBuilder);
   private authService = inject(AuthService);
 
   loading = signal(false);
   error = signal<string | null>(null);
 
-  kycForm = this.fb.group({
+  // FIX: The FormBuilder was not being resolved correctly during class property initialization, resulting in `this.fb` being of type `unknown`. Using `inject(FormBuilder)` directly within the property initializer for the form group resolves this by avoiding reliance on `this` in that context.
+  kycForm = inject(FormBuilder).group({
     displayName: ['', [Validators.required, Validators.minLength(3)]],
     phoneNumber: ['', [Validators.required, Validators.pattern(/^\+?[0-9]{10,15}$/)]]
   });

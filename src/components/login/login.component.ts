@@ -11,14 +11,14 @@ import { AuthService } from '../../services/auth.service';
   imports: [ReactiveFormsModule, RouterLink]
 })
 export class LoginComponent {
-  private fb = inject(FormBuilder);
   private router = inject(Router);
   private authService = inject(AuthService);
 
   loading = signal(false);
   errorMessage = signal<string | null>(null);
 
-  loginForm = this.fb.group({
+  // FIX: The FormBuilder was not being resolved correctly during class property initialization, resulting in `this.fb` being of type `unknown`. Using `inject(FormBuilder)` directly within the property initializer for the form group resolves this by avoiding reliance on `this` in that context.
+  loginForm = inject(FormBuilder).group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]]
   });

@@ -76,14 +76,14 @@ export class TransferModalComponent {
   close = output<void>();
   transfer = output<{ amount: number; receiverUpi: string }>();
 
-  private fb = inject(FormBuilder);
   private transactionService = inject(TransactionService);
 
   status = signal<ModalStatus>('idle');
   receiverName = signal<string | null>(null);
   upiIdInvalid = signal(false);
 
-  transferForm = this.fb.group({
+  // FIX: The FormBuilder was not being resolved correctly during class property initialization, resulting in `this.fb` being of type `unknown`. Using `inject(FormBuilder)` directly within the property initializer for the form group resolves this by avoiding reliance on `this` in that context.
+  transferForm = inject(FormBuilder).group({
     upiId: ['', [Validators.required, Validators.pattern(/^.+@TEST$/)]],
     amount: [null as number | null, [Validators.required, Validators.min(1)]],
   });

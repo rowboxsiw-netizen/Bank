@@ -1,0 +1,5 @@
+{
+  "name": "Neo-Bank Dashboard",
+  "description": "A secure, high-performance Neo-Bank application built with Angular and Firebase, featuring a modern, dark-themed UI inspired by developer tools.",
+  "requestFramePermissions": []
+}

@@ -5,11 +5,12 @@ import { AuthService } from '../core/services/auth.service';
 import { TransactionService } from '../core/services/transaction.service';
 import { TransferModalComponent } from '../components/transfer-modal/transfer-modal.component';
 import { KycModalComponent } from '../components/kyc-modal/kyc-modal.component';
+import { VirtualCardComponent } from '../components/virtual-card/virtual-card.component';
 import { TiltDirective } from '../shared/directives/tilt.directive';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, CurrencyPipe, DatePipe, TransferModalComponent, KycModalComponent, TiltDirective],
+  imports: [CommonModule, CurrencyPipe, DatePipe, TransferModalComponent, KycModalComponent, VirtualCardComponent, TiltDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Mandatory KYC Check -->
@@ -38,55 +39,73 @@ import { TiltDirective } from '../shared/directives/tilt.directive';
 
       <!-- Main Content -->
       <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center">
-        <div class="w-full max-w-4xl mx-auto space-y-8">
-            <!-- 3D Card Section -->
-            <div class="w-full max-w-md mx-auto">
-              <div appTilt class="relative w-full aspect-[1.586] rounded-2xl p-6 flex flex-col justify-between
-                          bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl
-                          hover:shadow-[0_20px_50px_rgba(8,_112,_184,_0.7)]">
-                  <div class="flex justify-between items-start">
-                    <span class="text-xl font-bold">{{ currentUser()?.displayName || 'User' }}</span>
-                     @if(currentUser()?.kycStatus === 'verified') {
-                        <span class="bg-green-500/20 text-green-400 text-[10px] px-2 py-1 rounded-full uppercase tracking-widest border border-green-500/30">Verified</span>
-                     }
-                  </div>
-                  <div class="text-left">
-                    <p class="text-sm text-white/70">Balance</p>
-                    <p class="text-4xl font-semibold tracking-wider">{{ userBalance() | currency:'INR':'symbol':'1.2-2' }}</p>
-                    <p class="mt-4 font-mono text-lg text-white/80 tracking-widest">{{ userUPI() }}</p>
-                  </div>
-              </div>
+        <div class="w-full max-w-4xl mx-auto space-y-12">
+            
+            <!-- Balance & Card Module -->
+            <div class="flex flex-col md:flex-row gap-8 items-center justify-center">
+                
+                <!-- Account Summary -->
+                <div class="flex-1 space-y-2 text-center md:text-left">
+                   <p class="text-zinc-400 text-sm font-medium uppercase tracking-widest">Total Balance</p>
+                   <h1 class="text-5xl font-bold text-white tracking-tight">{{ userBalance() | currency:'INR':'symbol':'1.2-2' }}</h1>
+                   <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mt-2">
+                      <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                      <span class="text-xs text-zinc-400 font-mono">{{ userUPI() }}</span>
+                   </div>
+                   
+                   <div class="pt-8 flex flex-wrap gap-4 justify-center md:justify-start">
+                       <button [disabled]="currentUser()?.kycStatus === 'pending'" (click)="showTransferModal.set(true)" class="flex-1 min-w-[140px] px-6 py-3 font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                         Send Money
+                       </button>
+                       <button class="flex-1 min-w-[140px] px-6 py-3 font-semibold text-white bg-white/10 border border-white/20 rounded-xl hover:bg-white/20 transition-colors">
+                         Add Funds
+                       </button>
+                   </div>
+                </div>
+
+                <!-- Virtual Card Component -->
+                <div class="flex-1 w-full max-w-md">
+                   <app-virtual-card [card]="currentUser()?.card" />
+                </div>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="flex items-center justify-center space-x-4">
-              <button [disabled]="currentUser()?.kycStatus === 'pending'" (click)="showTransferModal.set(true)" class="px-8 py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Send via UPI</button>
-              <button class="px-8 py-3 font-semibold text-white bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors">Add Money</button>
-            </div>
 
             <!-- Recent Transactions -->
             @defer (on viewport) {
-              <div class="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
-                <h3 class="text-lg font-semibold mb-4">Recent Transactions</h3>
-                <div class="space-y-3 max-h-64 overflow-y-auto">
+              <div class="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
+                <h3 class="text-lg font-semibold mb-6 flex items-center gap-2">
+                   <svg class="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                   Transaction History
+                </h3>
+                <div class="space-y-1 max-h-80 overflow-y-auto pr-2">
                   @for (tx of transactions(); track tx.id) {
-                    <div class="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                      <div>
-                        <p class="font-medium">{{ tx.merchant }}</p>
-                        <p class="text-sm text-white/60">{{ tx.date | date:'mediumDate' }}</p>
+                    <div class="group flex justify-between items-center p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-transparent hover:border-white/10">
+                      <div class="flex items-center gap-4">
+                         <div class="w-10 h-10 rounded-full flex items-center justify-center" 
+                              [class]="tx.type === 'credit' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'">
+                            @if(tx.type === 'credit'){ <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg> }
+                            @else { <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg> }
+                         </div>
+                         <div>
+                            <p class="font-medium text-white">{{ tx.merchant }}</p>
+                            <p class="text-xs text-zinc-500">{{ tx.date | date:'mediumDate' }} • {{ tx.date | date:'shortTime' }}</p>
+                         </div>
                       </div>
-                      <p class="font-mono" [class]="tx.type === 'credit' ? 'text-green-400' : 'text-red-400'">
+                      <p class="font-mono font-medium text-lg" [class]="tx.type === 'credit' ? 'text-green-400' : 'text-white'">
                          {{ tx.type === 'credit' ? '+' : '-' }}{{ tx.amount | currency:'INR':'symbol':'1.2-2' }}
                       </p>
                     </div>
                   } @empty {
-                    <p class="text-center text-white/50 py-4">No transactions yet.</p>
+                    <div class="flex flex-col items-center justify-center py-12 text-zinc-500">
+                       <svg class="w-12 h-12 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                       <p>No transactions found</p>
+                    </div>
                   }
                 </div>
               </div>
             } @placeholder {
                <div class="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6 h-48 flex items-center justify-center">
-                 <p class="text-white/50">Loading transactions...</p>
+                 <p class="text-white/50 animate-pulse">Loading activity...</p>
                </div>
             }
         </div>
@@ -98,8 +117,13 @@ import { TiltDirective } from '../shared/directives/tilt.directive';
     }
     
     @if(toastMessage()){
-      <div class="fixed bottom-8 right-8 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg">
-        {{ toastMessage() }}
+      <div class="fixed bottom-8 right-8 bg-zinc-800 text-white px-6 py-4 rounded-xl shadow-2xl border border-white/10 flex items-center gap-3 animate-fade-in-up z-50">
+        @if(toastMessage()?.includes('failed') || toastMessage()?.includes('error')) {
+           <svg class="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        } @else {
+           <svg class="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        }
+        <span class="font-medium">{{ toastMessage() }}</span>
       </div>
     }
   `
@@ -132,7 +156,13 @@ export class DashboardComponent {
       if (result !== 'SUCCESS') {
         // --- Rollback on Failure ---
         this.authService.currentUser.update(user => user ? { ...user, balance: originalBalance } : null);
-        this.showToast(`Transfer failed: ${result.replace('_', ' ')}`);
+        
+        let msg = 'Transfer failed';
+        if (result === 'CARD_FROZEN') msg = 'Transaction Blocked: Card is Frozen';
+        else if (result === 'INSUFFICIENT_FUNDS') msg = 'Insufficient Funds';
+        else if (result === 'RECEIVER_NOT_FOUND') msg = 'Receiver UPI not found';
+        
+        this.showToast(msg);
       }
       // On success, do nothing. The real-time listener will confirm the new balance.
     } catch (error) {
@@ -144,7 +174,7 @@ export class DashboardComponent {
 
   showToast(message: string) {
     this.toastMessage.set(message);
-    setTimeout(() => this.toastMessage.set(null), 3000);
+    setTimeout(() => this.toastMessage.set(null), 4000);
   }
 
   logout() {

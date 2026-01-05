@@ -16,7 +16,7 @@ import { firestore } from '../../../firebase.config';
 import { AuthService } from './auth.service';
 import { Transaction } from '../../../models/transaction.model';
 
-export type TransferStatus = 'SUCCESS' | 'INSUFFICIENT_FUNDS' | 'RECEIVER_NOT_FOUND' | 'ERROR';
+export type TransferStatus = 'SUCCESS' | 'INSUFFICIENT_FUNDS' | 'RECEIVER_NOT_FOUND' | 'CARD_FROZEN' | 'ERROR';
 
 @Injectable({
   providedIn: 'root',
@@ -82,6 +82,11 @@ export class TransactionService {
   async transferFunds(amount: number, receiverUpi: string): Promise<TransferStatus> {
     const sender = this.currentUser();
     if (!sender) return 'ERROR';
+
+    // STRICT CHECK: Card Freeze
+    if (sender.card && sender.card.status === 'frozen') {
+      return 'CARD_FROZEN';
+    }
 
     try {
       const receiverData = await this.findReceiverByUpi(receiverUpi);

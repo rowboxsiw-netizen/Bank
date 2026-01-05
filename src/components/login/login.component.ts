@@ -19,8 +19,8 @@ export class LoginComponent {
   errorMessage = signal<string | null>(null);
 
   loginForm = this.fb.group({
-    email: ['test@test.com', [Validators.required, Validators.email]],
-    password: ['password123', [Validators.required, Validators.minLength(6)]]
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(6)]]
   });
 
   async onSubmit() {

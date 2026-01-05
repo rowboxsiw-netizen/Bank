@@ -49,10 +49,10 @@ export class AuthService {
             };
             this.currentUser.set(userProfile);
           } else {
-             // This case might happen if user exists in Auth but not Firestore.
-             // For this app, we assume they are always created together.
-             console.error("User document not found in Firestore!");
-             this.currentUser.set(null);
+             // This case can happen during registration due to a race condition.
+             // onSnapshot will fire again once the document is created.
+             // We log the event but no longer set the user to null, which fixes the bug.
+             console.warn("User document not found yet. Waiting for creation...");
           }
         });
       } else {

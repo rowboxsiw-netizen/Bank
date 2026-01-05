@@ -1,5 +1,5 @@
 
-import { Component, ChangeDetectionStrategy, inject, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
@@ -22,9 +22,11 @@ export class DashboardComponent {
   sortColumn = this.transactionService.sortColumn;
   sortDirection = this.transactionService.sortDirection;
 
+  transferError = signal<string | null>(null);
+
   quickTransferForm = this.fb.group({
     recipient: ['', Validators.required],
-    amount: [null as number | null, [Validators.required, Validators.min(1)]],
+    amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
     memo: ['']
   });
 
@@ -42,15 +44,17 @@ export class DashboardComponent {
   }
 
   async handleTransfer() {
-    if (this.quickTransferForm.invalid || !this.quickTransferForm.value.amount) {
+    if (this.quickTransferForm.invalid) {
       return;
     }
+    this.transferError.set(null); // Reset error on new attempt
 
     const formValue = this.quickTransferForm.value;
+    const amount = Number(formValue.amount);
 
     const newTransaction: Omit<Transaction, 'id'> = {
       merchant: formValue.recipient || 'Unknown Recipient',
-      amount: formValue.amount,
+      amount: amount,
       date: new Date().toISOString().split('T')[0], // Today's date as 'YYYY-MM-DD'
       status: 'Completed',
       type: 'debit',
@@ -59,9 +63,9 @@ export class DashboardComponent {
     try {
       await this.transactionService.addTransaction(newTransaction);
       this.quickTransferForm.reset();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send money:', error);
-      // Optionally, set an error signal to display a message to the user
+      this.transferError.set(error.message); // Display error to the user
     }
   }
 

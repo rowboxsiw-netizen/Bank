@@ -150,6 +150,13 @@
               <input type="text" id="memo" formControlName="memo"
                      class="mt-1 block w-full px-3 py-2 text-white bg-zinc-900 border border-zinc-700 placeholder-zinc-500 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
             </div>
+
+            @if (transferError()) {
+              <div class="p-3 text-sm text-center text-red-400 bg-red-900/20 border border-red-500/30 rounded-md">
+                {{ transferError() }}
+              </div>
+            }
+
             <button type="submit" [disabled]="quickTransferForm.invalid"
                     class="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-blue-500 disabled:bg-zinc-700 disabled:cursor-not-allowed">
               Send Money

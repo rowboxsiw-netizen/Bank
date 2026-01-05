@@ -6,7 +6,8 @@ import {
   onSnapshot,
   query,
   orderBy,
-  addDoc,
+  doc,
+  runTransaction,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase.config';
@@ -109,12 +110,47 @@ export class TransactionService {
 
   async addTransaction(transaction: Omit<Transaction, 'id'>): Promise<void> {
     const user = this.currentUser();
-    if (!user) throw new Error('User not logged in');
+    if (!user) throw new Error('User not logged in.');
+    if (transaction.amount <= 0) throw new Error('Transaction amount must be positive.');
 
-    await addDoc(collection(db, 'users', user.uid, 'transactions'), {
-      ...transaction,
-      date: new Date(transaction.date), // Store as Firestore Timestamp
-    });
+    const userDocRef = doc(db, 'users', user.uid);
+
+    try {
+      await runTransaction(db, async (tx) => {
+        const userDoc = await tx.get(userDocRef);
+        if (!userDoc.exists()) {
+          throw new Error('User document does not exist!');
+        }
+
+        const currentBalance = userDoc.data()['balance'];
+        let newBalance;
+
+        if (transaction.type === 'debit') {
+          if (currentBalance < transaction.amount) {
+            throw new Error('Insufficient funds.');
+          }
+          newBalance = currentBalance - transaction.amount;
+        } else { // credit
+          newBalance = currentBalance + transaction.amount;
+        }
+
+        // 1. Update user's balance
+        tx.update(userDocRef, { balance: newBalance });
+
+        // 2. Add the new transaction record
+        const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
+        tx.set(newTransactionRef, {
+          ...transaction,
+          date: new Date(transaction.date), // Store as Firestore Timestamp
+        });
+      });
+    } catch (e) {
+      console.error('Transaction failed: ', e);
+      if (e instanceof Error) {
+        throw e; // Re-throw the specific error message (e.g., "Insufficient funds.")
+      }
+      throw new Error('An unknown error occurred during the transaction.');
+    }
   }
 
   // --- Public methods to update state ---

@@ -4,7 +4,10 @@ export interface UserProfile {
   email: string;
   upiId: string;
   balance: number;
-  createdAt: any;
+  createdAt: Date;
+  role: 'admin' | 'user';
+  kycStatus: 'pending' | 'verified';
   displayName?: string | null;
+  phoneNumber?: string | null;
   photoURL?: string | null;
 }

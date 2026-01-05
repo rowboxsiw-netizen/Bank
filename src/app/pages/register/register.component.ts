@@ -13,7 +13,7 @@ import { AuthService } from '../../core/services/auth.service';
       <div class="w-full max-w-md p-8 space-y-8 bg-white border border-gray-200 rounded-xl shadow-sm">
         <div>
           <h2 class="mt-6 text-3xl font-bold text-center text-gray-900">Create your account</h2>
-          <p class="mt-2 text-sm text-center text-gray-600">And receive a ₹50.00 sign-up bonus!</p>
+          <p class="mt-2 text-sm text-center text-gray-600">Secure. Automated. Instant.</p>
         </div>
         <form class="mt-8 space-y-6" [formGroup]="registerForm" (ngSubmit)="onSubmit()">
           <div class="space-y-4 rounded-md">
@@ -28,15 +28,6 @@ import { AuthService } from '../../core/services/auth.service';
               <input id="password" type="password" autocomplete="new-password" required
                      class="relative block w-full px-3 py-2 text-gray-900 bg-gray-50 border border-gray-300 placeholder-gray-500 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                      placeholder="Password" formControlName="password">
-            </div>
-            <div>
-              <label for="upi-id" class="sr-only">UPI ID</label>
-              <input id="upi-id" type="text" autocomplete="off" required
-                     class="relative block w-full px-3 py-2 text-gray-900 bg-gray-50 border border-gray-300 placeholder-gray-500 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                     placeholder="Enter your UPI ID" formControlName="upiId">
-              @if (upiId?.hasError('pattern') && upiId?.touched) {
-                <p class="mt-2 text-xs text-red-600">UPI ID must end with @TEST</p>
-              }
             </div>
           </div>
 
@@ -79,12 +70,7 @@ export class RegisterComponent {
   registerForm = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
-    upiId: ['', [Validators.required, Validators.pattern(/^.+@TEST$/)]]
   });
-
-  get upiId() {
-    return this.registerForm.get('upiId');
-  }
 
   async onSubmit() {
     if (this.registerForm.invalid) {
@@ -94,10 +80,11 @@ export class RegisterComponent {
 
     this.loading.set(true);
     this.errorMessage.set(null);
-    const { email, password, upiId } = this.registerForm.value;
+    const { email, password } = this.registerForm.value;
 
     try {
-      await this.authService.register(email!, password!, upiId!);
+      // Logic change: UPI is now auto-generated in the service
+      await this.authService.register(email!, password!);
       this.router.navigate(['/dashboard']);
     } catch (error: any) {
       this.errorMessage.set(error.message);

@@ -1,4 +1,3 @@
-
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
@@ -55,7 +54,8 @@ export class DashboardComponent {
     const newTransaction: Omit<Transaction, 'id'> = {
       merchant: formValue.recipient || 'Unknown Recipient',
       amount: amount,
-      date: new Date().toISOString().split('T')[0], // Today's date as 'YYYY-MM-DD'
+      // FIX: Changed to a Date object to match the Transaction model's `date: Date` type.
+      date: new Date(),
       status: 'Completed',
       type: 'debit',
     };

@@ -1,7 +1,7 @@
 
 export interface Transaction {
   id: string;
-  date: string;
+  date: Date;
   merchant: string;
   amount: number;
   status: 'Completed' | 'Pending' | 'Failed';

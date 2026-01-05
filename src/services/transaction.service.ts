@@ -86,7 +86,8 @@ export class TransactionService {
             const data = doc.data();
             return {
               id: doc.id,
-              date: (data['date'] as Timestamp).toDate().toISOString().split('T')[0],
+              // FIX: Changed to a Date object to match the Transaction model's `date: Date` type.
+              date: (data['date'] as Timestamp).toDate(),
               merchant: data['merchant'],
               amount: data['amount'],
               status: data['status'],

@@ -1,27 +1,35 @@
 
-import { Component, ChangeDetectionStrategy, inject, computed, signal } from '@angular/core';
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { Component, ChangeDetectionStrategy, inject, computed, signal, effect, EffectRef } from '@angular/core';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { AuthService } from '../core/services/auth.service';
+import { TransactionService } from '../core/services/transaction.service';
+import { TransferModalComponent } from '../components/transfer-modal/transfer-modal.component';
+import { KycModalComponent } from '../components/kyc-modal/kyc-modal.component';
+import { TiltDirective } from '../shared/directives/tilt.directive';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, CurrencyPipe],
+  imports: [CommonModule, CurrencyPipe, DatePipe, TransferModalComponent, KycModalComponent, TiltDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="flex flex-col h-screen bg-gray-50 text-gray-900 font-sans">
-      <!-- Top Bar -->
-      <header class="h-16 flex-shrink-0 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+    <!-- Mandatory KYC Check -->
+    @if (currentUser()?.kycStatus === 'pending') {
+      <app-kyc-modal />
+    }
+
+    <div class="relative flex flex-col h-screen overflow-hidden bg-black text-white font-sans">
+      <!-- Animated Gradient Background -->
+      <div class="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-gray-900 to-black -z-10"></div>
+
+      <!-- Header -->
+      <header class="h-16 flex-shrink-0 flex items-center justify-between px-6 bg-black/30 backdrop-blur-sm border-b border-white/10 z-10">
         <div class="flex items-center space-x-3">
-          <svg class="h-7 w-7 text-blue-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M2 7L12 12L22 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M12 12V22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-          <span class="text-lg font-semibold text-gray-800">Premium Bank</span>
+          <svg class="h-7 w-7 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M2 7L12 12L22 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M12 12V22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <span class="text-xl font-semibold tracking-wider">Neo-Bank</span>
         </div>
         <div class="flex items-center space-x-4">
           @if (currentUser()) {
-            <div class="text-right">
-              <p class="text-sm font-medium text-gray-800">{{ currentUser()?.displayName }}</p>
-              <p class="text-xs text-gray-500">{{ userUPI() }}</p>
-            </div>
-            <button (click)="logout()" class="px-3 py-1.5 text-sm text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200">
+            <button (click)="logout()" class="px-4 py-2 text-sm font-medium bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors">
               Logout
             </button>
           }
@@ -29,66 +37,114 @@ import { AuthService } from '../core/services/auth.service';
       </header>
 
       <!-- Main Content -->
-      <main class="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-        <div class="w-full max-w-2xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-8 space-y-8">
-            <!-- Balance Section -->
-            <div>
-              <div class="flex items-center justify-between">
-                <h2 class="text-base font-medium text-gray-500">Total Balance</h2>
-                <button (click)="toggleBalanceVisibility()" class="p-2 text-gray-400 rounded-full hover:bg-gray-100 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                   @if (showBalance()) {
-                    <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243a3 3 0 01-4.243-4.243" />
-                    </svg>
-                   } @else {
-                    <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.432 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                   }
-                </button>
+      <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center">
+        <div class="w-full max-w-4xl mx-auto space-y-8">
+            <!-- 3D Card Section -->
+            <div class="w-full max-w-md mx-auto">
+              <div appTilt class="relative w-full aspect-[1.586] rounded-2xl p-6 flex flex-col justify-between
+                          bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl
+                          hover:shadow-[0_20px_50px_rgba(8,_112,_184,_0.7)]">
+                  <div class="flex justify-between items-start">
+                    <span class="text-xl font-bold">{{ currentUser()?.displayName || 'User' }}</span>
+                     @if(currentUser()?.kycStatus === 'verified') {
+                        <span class="bg-green-500/20 text-green-400 text-[10px] px-2 py-1 rounded-full uppercase tracking-widest border border-green-500/30">Verified</span>
+                     }
+                  </div>
+                  <div class="text-left">
+                    <p class="text-sm text-white/70">Balance</p>
+                    <p class="text-4xl font-semibold tracking-wider">{{ userBalance() | currency:'INR':'symbol':'1.2-2' }}</p>
+                    <p class="mt-4 font-mono text-lg text-white/80 tracking-widest">{{ userUPI() }}</p>
+                  </div>
               </div>
+            </div>
 
-              <div class="mt-4">
-                @if (showBalance()) {
-                  <p class="text-5xl font-bold tracking-tight text-gray-900">
-                    {{ userBalance() | currency:'INR':'symbol':'1.2-2' }}
-                  </p>
-                } @else {
-                  <p class="text-5xl font-bold tracking-tight text-gray-900">
-                    <span class="tracking-widest">₹••••••</span>
-                  </p>
-                }
-              </div>
+            <!-- Action Buttons -->
+            <div class="flex items-center justify-center space-x-4">
+              <button [disabled]="currentUser()?.kycStatus === 'pending'" (click)="showTransferModal.set(true)" class="px-8 py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Send via UPI</button>
+              <button class="px-8 py-3 font-semibold text-white bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors">Add Money</button>
             </div>
-            
-            <!-- Quick Actions -->
-            <div class="pt-6 border-t border-gray-200">
-                <div class="flex items-center space-x-4">
-                    <button class="w-full px-6 py-3 text-sm font-semibold text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                      Add Money
-                    </button>
-                    <button class="w-full px-6 py-3 text-sm font-semibold text-gray-800 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
-                      Send Money
-                    </button>
+
+            <!-- Recent Transactions -->
+            @defer (on viewport) {
+              <div class="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Recent Transactions</h3>
+                <div class="space-y-3 max-h-64 overflow-y-auto">
+                  @for (tx of transactions(); track tx.id) {
+                    <div class="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                      <div>
+                        <p class="font-medium">{{ tx.merchant }}</p>
+                        <p class="text-sm text-white/60">{{ tx.date | date:'mediumDate' }}</p>
+                      </div>
+                      <p class="font-mono" [class]="tx.type === 'credit' ? 'text-green-400' : 'text-red-400'">
+                         {{ tx.type === 'credit' ? '+' : '-' }}{{ tx.amount | currency:'INR':'symbol':'1.2-2' }}
+                      </p>
+                    </div>
+                  } @empty {
+                    <p class="text-center text-white/50 py-4">No transactions yet.</p>
+                  }
                 </div>
-            </div>
+              </div>
+            } @placeholder {
+               <div class="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6 h-48 flex items-center justify-center">
+                 <p class="text-white/50">Loading transactions...</p>
+               </div>
+            }
         </div>
       </main>
     </div>
+
+    @if (showTransferModal()) {
+      <app-transfer-modal (close)="showTransferModal.set(false)" (transfer)="handleTransfer($event)"></app-transfer-modal>
+    }
+    
+    @if(toastMessage()){
+      <div class="fixed bottom-8 right-8 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg">
+        {{ toastMessage() }}
+      </div>
+    }
   `
 })
 export class DashboardComponent {
-  private authService = inject(AuthService);
+  authService = inject(AuthService);
+  private transactionService = inject(TransactionService);
 
   currentUser = this.authService.currentUser;
-  showBalance = signal(false);
-
   userBalance = computed(() => this.authService.currentUser()?.balance ?? 0);
   userUPI = computed(() => this.authService.currentUser()?.upiId ?? 'Not Set');
+  transactions = this.transactionService.transactions;
 
-  toggleBalanceVisibility(): void {
-    this.showBalance.update(value => !value);
+  showTransferModal = signal(false);
+  toastMessage = signal<string | null>(null);
+
+  async handleTransfer(data: { amount: number; receiverUpi: string }) {
+    this.showTransferModal.set(false);
+    const currentUser = this.currentUser();
+    if (!currentUser) return;
+    
+    // --- Optimistic UI Update ---
+    const originalBalance = currentUser.balance;
+    const optimisticBalance = originalBalance - data.amount;
+    this.authService.currentUser.update(user => user ? { ...user, balance: optimisticBalance } : null);
+
+    try {
+      const result = await this.transactionService.transferFunds(data.amount, data.receiverUpi);
+
+      if (result !== 'SUCCESS') {
+        // --- Rollback on Failure ---
+        this.authService.currentUser.update(user => user ? { ...user, balance: originalBalance } : null);
+        this.showToast(`Transfer failed: ${result.replace('_', ' ')}`);
+      }
+      // On success, do nothing. The real-time listener will confirm the new balance.
+    } catch (error) {
+       // --- Rollback on Error ---
+      this.authService.currentUser.update(user => user ? { ...user, balance: originalBalance } : null);
+      this.showToast('An unexpected error occurred.');
+    }
+  }
+
+  showToast(message: string) {
+    this.toastMessage.set(message);
+    setTimeout(() => this.toastMessage.set(null), 3000);
   }
 
   logout() {
